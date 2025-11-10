@@ -14,6 +14,10 @@ public class FrodoKEM {
 
     public void runDemo() {
         try {
+
+            FrodoParameters params = FrodoParameters.frodokem640aes;
+            System.out.println("Using Frodo parameter set: " + params.getName());
+            
             // Generate key pair
             FrodoKeyPairGenerator keyGen = new FrodoKeyPairGenerator();
             keyGen.init(new FrodoKeyGenerationParameters(new SecureRandom(), FrodoParameters.frodokem640aes));

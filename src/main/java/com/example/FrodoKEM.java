@@ -4,54 +4,69 @@ import org.bouncycastle.pqc.crypto.frodo.*;
 import org.bouncycastle.pqc.crypto.*;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.SecretWithEncapsulation;
-import org.bouncycastle.pqc.crypto.frodo.FrodoPublicKeyParameters;
-import org.bouncycastle.pqc.crypto.frodo.FrodoPrivateKeyParameters;
 import org.bouncycastle.util.encoders.Hex;
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 public class FrodoKEM {
 
     public void runDemo() {
         try {
-
             FrodoParameters params = FrodoParameters.frodokem640aes;
-            System.out.println("Using Frodo parameter set: " + params.getName());
-            
-            // Generate key pair
-            FrodoKeyPairGenerator keyGen = new FrodoKeyPairGenerator();
-            keyGen.init(new FrodoKeyGenerationParameters(new SecureRandom(), FrodoParameters.frodokem640aes));
+            System.out.println("=== FrodoKEM Demonstration ===");
+            System.out.println("Using parameter set: " + params.getName());
 
+            long startKeyGen = System.nanoTime();
+            FrodoKeyPairGenerator keyGen = new FrodoKeyPairGenerator();
+            keyGen.init(new FrodoKeyGenerationParameters(new SecureRandom(), params));
             AsymmetricCipherKeyPair keyPair = keyGen.generateKeyPair();
+            long endKeyGen = System.nanoTime();
 
             FrodoPublicKeyParameters publicKey = (FrodoPublicKeyParameters) keyPair.getPublic();
             FrodoPrivateKeyParameters privateKey = (FrodoPrivateKeyParameters) keyPair.getPrivate();
 
+            System.out.printf("Key generation took: %d ms%n", (endKeyGen - startKeyGen) / 1_000_000);
+            System.out.println("Public key length: " + publicKey.getEncoded().length + " bytes");
+            System.out.println("Private key length: " + privateKey.getEncoded().length + " bytes");
+
+            FileUtils.saveBytes("output/public.key", publicKey.getEncoded());
+            FileUtils.saveBytes("output/private.key", privateKey.getEncoded());
+
+            long startEncap = System.nanoTime();
             FrodoKEMGenerator encapsulator = new FrodoKEMGenerator(new SecureRandom());
             SecretWithEncapsulation secretEnc = encapsulator.generateEncapsulated(publicKey);
+            long endEncap = System.nanoTime();
 
             byte[] sharedEnc = secretEnc.getSecret();
             byte[] ciphertext = secretEnc.getEncapsulation();
 
+            System.out.printf("Encapsulation took: %d ms%n", (endEncap - startEncap) / 1_000_000);
+            System.out.println("Ciphertext length: " + ciphertext.length + " bytes");
+            FileUtils.saveBytes("output/ciphertext.bin", ciphertext);
+
+            long startDecap = System.nanoTime();
             FrodoKEMExtractor extractor = new FrodoKEMExtractor(privateKey);
             byte[] sharedDec = extractor.extractSecret(ciphertext);
+            long endDecap = System.nanoTime();
 
-            System.out.println("Ciphertext: " + Hex.toHexString(ciphertext));
-            System.out.println("Shared key (encapsulator): " + Hex.toHexString(sharedEnc));
+            System.out.printf("Decapsulation took: %d ms%n", (endDecap - startDecap) / 1_000_000);
+
+            System.out.println("\nShared key (encapsulator): " + Hex.toHexString(sharedEnc));
             System.out.println("Shared key (decapsulator): " + Hex.toHexString(sharedDec));
-            System.out.println(Arrays.equals(sharedEnc, sharedDec)
-                    ? "Keys match!" : "Keys differ!");
+
+            if (constantTimeEquals(sharedEnc, sharedDec))
+                System.out.println("Keys match!");
+            else
+                System.out.println("Keys differ!");
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
+    private static boolean constantTimeEquals(byte[] a, byte[] b) {
+        if (a == null || b == null || a.length != b.length) return false;
+        int diff = 0;
+        for (int i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+        return diff == 0;
     }
 }

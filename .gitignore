@@ -1,0 +1,21 @@
+# Java class files
+*.class
+
+# IDE output folders
+bin/
+out/
+build/
+target/
+
+# VS Code Java cache
+.vscode/
+.settings/
+.project
+.classpath
+
+# Generated output files
+output/
+
+# OS files
+.DS_Store
+Thumbs.db
